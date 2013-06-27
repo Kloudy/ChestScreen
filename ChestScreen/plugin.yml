@@ -1,0 +1,10 @@
+name: ChestScreen
+main: kloudy.mc.chestscreen.ChestDisplay
+version: 1.0
+author: Kloudy
+
+soft-depend: [WorldGuard]
+
+commands:
+  cd:
+    description: used to define commands for the ChestDisplay plugin
