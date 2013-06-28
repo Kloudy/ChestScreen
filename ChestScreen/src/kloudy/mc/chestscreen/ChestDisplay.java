@@ -44,7 +44,7 @@ import org.bukkit.plugin.Plugin;
 
 public class ChestDisplay extends JavaPlugin implements Listener{
 	HashMap<Integer, ArrayList<Display>> displays = new HashMap<Integer, ArrayList<Display>>();
-	WorldGuardPlugin wg = getWorldGuard();
+	WorldGuardPlugin wg;
 	
 	/**
 	 * Called when the plug-in is enabled on the server
@@ -55,6 +55,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 		getServer().getPluginManager().registerEvents(this, this);
 		getLogger().info("Chest Screen Plugin Author: Tim Kerr (Kloudy)");
 		getLogger().info("Reading display data from file");
+		wg = getWorldGuard();
 		
 		displays.put(-1, new ArrayList<Display>());//initialize removed displays list
 		
@@ -240,7 +241,18 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			while(counter < displays.get(-2).size()){
 				if(displays.get(-2).get(counter) != null){
 					if(displays.get(-2).get(counter).getPName().equals(player.getName())){
-						displays.get(-2).get(counter).setOffset(new Coords(block.getLocation().getBlockX(), block.getLocation().getBlockY(), block.getLocation().getBlockZ()));
+						
+						if(wg != null){
+							if(wg.canBuild(player, block)){
+								displays.get(-2).get(counter).setOffset(new Coords(block.getLocation().getBlockX(), block.getLocation().getBlockY(), block.getLocation().getBlockZ()));
+							}
+						}
+						
+						//no world guard on server
+						else{
+							displays.get(-2).get(counter).setOffset(new Coords(block.getLocation().getBlockX(), block.getLocation().getBlockY(), block.getLocation().getBlockZ()));						
+						}
+						//displays.get(-2).get(counter).setOffset(new Coords(block.getLocation().getBlockX(), block.getLocation().getBlockY(), block.getLocation().getBlockZ()));
 						found++;
 					}
 				}
@@ -249,22 +261,11 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			
 			if(found > 0){
 				//TODO
-				//if(wg != null){
-					
-					//Check to make sure the player is setting offset in World Guard region where they can build
-					//if(wg.canBuild(player, block)){
-						player.sendMessage(ChatColor.GREEN + "Set offset block: X: " + block.getX() + " ,Y: " + block.getY() + " ,Z: " + block.getZ() +"\n" + ChatColor.AQUA + "type /cd finish to complete display setup.");
-					//}
-					
-					//else{
-					//	player.sendMessage(ChatColor.RED + "You cannot make a display here!");
-					//}
-				//}
+				boolean canBuild = checkBuildRadiusPermissions(block.getLocation(), player);
 				
-				//no World Guard...display away
-				//else{
-				//	player.sendMessage(ChatColor.GREEN + "Set offset block: X: " + block.getX() + " ,Y: " + block.getY() + " ,Z: " + block.getZ() +"\n" + ChatColor.AQUA + "type /cd finish to complete display setup.");				
-				//}
+				if(canBuild){
+					player.sendMessage(ChatColor.GREEN + "Set offset block: X: " + block.getX() + " ,Y: " + block.getY() + " ,Z: " + block.getZ() +"\n" + ChatColor.AQUA + "type /cd finish to complete display setup.");
+				}
 			}
 		}
 	}
@@ -570,34 +571,12 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 						
 						//place block
 						if(items[i-1].getTypeId() < 256){
-							//TODO world guard here
-							//Player player = Bukkit.getPlayer(sign.getLine(2));
-							//if(wg != null){
-								//doesn't place block if it enters a world guard protected region that the player is not allowed to build in
-								//if(wg.canBuild(player, currLoc)){
-									currBlock.setTypeIdAndData(items[i-1].getTypeId(), items[i-1].getData().getData(), false);
-								//}					
-							//}
-							//no World Guard...display away
-							//else{						
-							//	currBlock.setTypeIdAndData(items[i-1].getTypeId(), items[i-1].getData().getData(), false);
-							//}
+							currBlock.setTypeIdAndData(items[i-1].getTypeId(), items[i-1].getData().getData(), false);						
 						}					
 					}
 					
 					if(sign.getLine(0).equals("[ChestDisplayN]") && items[i-1] == null){
-						//Player player = Bukkit.getPlayer(sign.getLine(2));
-						//doesn't place block if it enters a world guard protected region that the player is not allowed to build in
-						//if(wg != null){
-						//	if(wg.canBuild(player, currLoc)){
-								currBlock.setTypeId(0);//place air block for null space in chest
-						//	}
-						//}
-						
-						//no World Guard...display away
-						//else{						
-						//	currBlock.setTypeId(0);//place air block for null space in chest
-						//}			
+						currBlock.setTypeId(0);//place air block for null space in chest		
 					}
 					
 					if(displays.get(id).get(0).getDirection().matches("[nN]|[nN]orth")){
@@ -721,5 +700,117 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 	    }
 	 
 	    return (WorldGuardPlugin) plugin;
+	}
+	
+	/**
+	 * Checks to see if a player has placed a block at least 9 blocks away from a World Guard region 
+	 * that they do not belong to. Must be at least 9 blocks away b/c chest have 9 cols and I want
+	 * to prevent the possibilty of a display having an offset that isn't protected, but the display 
+	 * juts into a region that is protected.
+	 * @return true if player can is allowed to build at location
+	 */
+	private boolean checkBuildRadiusPermissions(Location location, Player player){
+		int x, y, z;
+		Location currLoc = null;
+		
+		//check center offset block for permissions
+		currLoc = location;
+		if(wg != null){
+			if(!wg.canBuild(player, currLoc)){
+				player.sendMessage(ChatColor.RED + "Cannot set display offset in protected region!");
+				return false;
+			}
+		}
+		
+		//check 9 blocks from north direction
+		z = location.getBlockZ() - 1;
+		currLoc.setZ(z);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			z--;
+			currLoc.setZ(z);
+		}
+		
+		//check 9 blocks from south direction
+		z = location.getBlockZ() + 1;
+		currLoc = location;
+		currLoc.setZ(z);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			z++;
+			currLoc.setZ(z);
+		}
+		
+		//check 9 blocks from east direction
+		x = location.getBlockX() + 1;
+		currLoc = location;
+		currLoc.setX(x);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			x++;
+			currLoc.setX(x);
+		}
+		
+		//check 9 blocks from west direction
+		x = location.getBlockX() - 1;
+		currLoc = location;
+		currLoc.setX(x);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			x--;
+			currLoc.setX(x);
+		}
+		
+		//check 9 blocks from up direction
+		y = location.getBlockY() + 1;
+		currLoc = location;
+		currLoc.setY(y);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			y++;
+			currLoc.setY(y);
+		}
+		
+		//check 9 blocks in from direction
+		y = location.getBlockY() - 1;
+		currLoc = location;
+		currLoc.setY(y);
+		for(int i = 0; i < 9; i++){			
+			if(wg != null){
+				if(!wg.canBuild(player, currLoc)){
+					player.sendMessage(ChatColor.RED + "Must set chest display offset at least 9 blocks away from a protected region.");
+					return false;
+				}
+			}
+			y--;
+			currLoc.setY(y);
+		}		
+		
+		return true;
 	}
 }
