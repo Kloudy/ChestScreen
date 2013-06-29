@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +29,7 @@ import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
@@ -109,7 +111,6 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 	@Override
 	public void onDisable(){
 		getLogger().info("Writing displays data to file");
-		//TODO Check to make sure all chest signs are in the same locations they were created (compare sign locations)
 		//TODO Format /cd list toString better
 		
 		//write display data to file
@@ -203,19 +204,19 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 				}
 				
 				//remove display at index specified
-				else if(args.length == 2 && args[0].matches("[rR]emove") && args[1].matches("\\d+")){
+				/*else if(args.length == 2 && args[0].matches("[rR]emove") && args[1].matches("\\d+")){
 					
 					int id = Integer.parseInt(args[1]);
 					
 					if(displays.get(id) != null){
-						removeDisplay(player.getName(), id);
+						removeDisplay(player.getName(), id, world);
 						player.sendMessage(ChatColor.GREEN + "Removed Display #" + args[1]);
 					}
 					
 					else{
 						player.sendMessage(ChatColor.RED + "Display does not exist");
 					}
-				}
+				}*/
 
 				else{
 					player.sendMessage(ChatColor.RED + "Invalid arguements for chest display\n" + 
@@ -323,7 +324,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 						
 						//Compare Coords
 						if(block.getX() == display.getSign().getX() && block.getY() == display.getSign().getY() && block.getZ() == display.getSign().getZ()){
-							removeDisplay(player.getName(), id);
+							removeDisplay(player.getName(), id, block.getWorld());
 						}
 						else{
 							player.sendMessage(ChatColor.RED + "Broke inactive sign");
@@ -382,7 +383,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 							
 							//Compare Coords
 							if(block.getX() == display.getChest().getX() && block.getY() == display.getChest().getY() && block.getZ() == display.getChest().getZ()){
-								removeDisplay(player.getName(), id);
+								removeDisplay(player.getName(), id, block.getWorld());
 								b.breakNaturally();//break display sign
 							}
 							else{
@@ -394,9 +395,18 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			}
 		}
 		
+		//TODO when display is removed, set all blocks at its offset to air
+		
 		//Check to see if broken block is part of the display.
 		//If it is, cancel the block break event and prevent and drops from falling
+		boolean noBreak = isDisplayBlock(block);
 		
+		//block is part of a display
+		//cancel break event and set block to air
+		if(noBreak){
+			event.setCancelled(true);
+			block.setTypeId(0);
+		}
 	}
 	
 	@EventHandler
@@ -483,9 +493,12 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			Sign sign = (Sign)poweredBlock.getState();
 			int id = getIdFromSign(sign);
 			boolean isValid = false;
-			//check if powered sign location is valid (i.e. the sign coord of powered sign should match up with sign coords in Hashtable)
-			if(poweredBlock.getX() == displays.get(id).get(0).getSign().getX() && poweredBlock.getY() == displays.get(id).get(0).getSign().getY() && poweredBlock.getZ() == displays.get(id).get(0).getSign().getZ()){
-				isValid = true;
+			
+			if(displays.get(id) != null){
+				//check if powered sign location is valid (i.e. the sign coord of powered sign should match up with sign coords in Hashtable)
+				if(poweredBlock.getX() == displays.get(id).get(0).getSign().getX() && poweredBlock.getY() == displays.get(id).get(0).getSign().getY() && poweredBlock.getZ() == displays.get(id).get(0).getSign().getZ()){
+					isValid = true;
+				}
 			}
 			
 			if((sign.getLine(0).equals("[ChestDisplay]") || sign.getLine(0).equals("[ChestDisplayN]")) && displays.get(id) != null && sign.getBlock().isBlockPowered() == true && isValid){			
@@ -540,7 +553,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 								
 								//display is not destroying its own sign or chest
 								if(tempId != id){
-									removeDisplay(s.getLine(2), tempId);
+									removeDisplay(s.getLine(2), tempId, sign.getWorld());
 								}
 								//display is destroying its own source chest and sign
 								else{
@@ -560,7 +573,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 									
 									//display is not destroying its own sign or chest
 									if(tempId != id){
-										removeDisplay(s.getLine(2), tempId);
+										removeDisplay(s.getLine(2), tempId, b.getWorld());
 									}
 									//display is destroying its own source chest and sign
 									else{
@@ -574,12 +587,14 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 						
 						//place block
 						if(items[i-1].getTypeId() < 256){
-							currBlock.setTypeIdAndData(items[i-1].getTypeId(), items[i-1].getData().getData(), false);						
+							currBlock.setTypeIdAndData(items[i-1].getTypeId(), items[i-1].getData().getData(), false);
+							currBlock.setMetadata(sign.getLine(3), new FixedMetadataValue(this, "hi"));
 						}					
 					}
 					
 					if(sign.getLine(0).equals("[ChestDisplayN]") && items[i-1] == null){
-						currBlock.setTypeId(0);//place air block for null space in chest		
+						currBlock.setTypeId(0);//place air block for null space in chest	
+						currBlock.setMetadata(sign.getLine(3), new FixedMetadataValue(this, "hi"));
 					}
 					
 					if(displays.get(id).get(0).getDirection().matches("[nN]|[nN]orth")){
@@ -603,7 +618,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 					}
 				}	
 				if(remove){
-					removeDisplay(removeName, removeId);
+					removeDisplay(removeName, removeId, currLoc.getWorld());
 				}
 			}
 		}
@@ -633,7 +648,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 	/**
 	 * Removes a display from use
 	 */
-	private void removeDisplay(String pname, int id){	
+	private void removeDisplay(String pname, int id, World world){	
 		Player player = Bukkit.getServer().getPlayer(pname);
 		
 		//check if the display is still pending
@@ -659,6 +674,69 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 		if(!found){
 			if(displays.get(id).get(0) != null){
 				displays.get(-1).add(displays.get(id).get(0));//add to unused list
+				
+				String direction = displays.get(id).get(0).getDirection();
+				Coords offset = displays.get(id).get(0).getOffset();
+				int x = offset.getX();
+				int y = offset.getY();
+				int z = offset.getZ();
+
+				//set all blocks at display offset to air
+				
+				//x--
+				//y--
+				if(direction.matches("[nN]|[nN]orth")){
+					
+					for(int i = 0; i < 9; i++){
+						for(int j = 0; j < 6; j++){
+							world.getBlockAt(new Location(world, x-i, y-j, z)).setTypeId(0);
+						}
+					}
+				}
+				
+				//x++
+				//y--
+				else if(direction.matches("[sS]|[sS]outh")){
+
+					for(int i = 0; i < 9; i++){
+						for(int j = 0; j < 6; j++){
+							world.getBlockAt(new Location(world, x+i, y-j, z)).setTypeId(0);
+						}
+					}
+				}
+				
+				//z--
+				//y--
+				else if(direction.matches("[eE]|[eE]ast")){
+					
+					for(int i = 0; i < 9; i++){
+						for(int j = 0; j < 6; j++){
+							world.getBlockAt(new Location(world, x, y-j, z-i)).setTypeId(0);
+						}
+					}
+				}
+				
+				//z++
+				//y--
+				else if(direction.matches("[wW]|[wW]est")){
+
+					for(int i = 0; i < 9; i++){
+						for(int j = 0; j < 6; j++){
+							world.getBlockAt(new Location(world, x, y-j, z+i)).setTypeId(0);
+						}
+					}
+				}
+				
+				//x++
+				//z++
+				else if(direction.matches("[uU]|[uU]p") || direction.matches("[dD]|[dD]own")){
+					for(int i = 0; i < 9; i++){
+						for(int j = 0; j < 6; j++){
+							world.getBlockAt(new Location(world, x+i, y, z+j)).setTypeId(0);
+						}
+					}
+				}
+							
 				displays.remove(id);
 			}
 			
@@ -709,7 +787,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 	 * Checks to see if a player has placed a block at least 9 blocks away from a World Guard region 
 	 * that they do not belong to. Must be at least 9 blocks away b/c chest have 9 cols and I want
 	 * to prevent the possibilty of a display having an offset that isn't protected, but the display 
-	 * juts into a region that is protected.
+	 * extends into a region that is protected.
 	 * @return true if player can is allowed to build at location
 	 */
 	private boolean checkBuildRadiusPermissions(Location location, Player player, String direction){
@@ -720,7 +798,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 
 		if(wg != null){
 			
-			//loop through area to check if player is making a display that will distrupt a region
+			//loop through cuboid area (19x19x6) to check if player is making a display that will extend into a region
 			for(int i = 0; i < 6; i++){
 				for(int j = -9; j < 10; j++){
 					for(int k = -9; k < 10; k++){
@@ -733,5 +811,84 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 		}
 		
 		return true;
+	}
+	
+	/**
+	 * checks if block has been generated by a display
+	 * @return true if the block is part of a display
+	 */
+	private boolean isDisplayBlock(Block block){
+		
+		Set<Integer> keySet = displays.keySet();
+		Iterator<Integer> it = keySet.iterator();
+		
+		//loops through all finished display objects
+		while(it.hasNext()){
+			int id = (Integer)it.next();
+			
+			//special locations in HashTable, skip these
+			if(!(id == -3 || id == -2 || id == -1)){
+				if(displays.get(id) != null){
+					
+					Coords pos1 = displays.get(id).get(0).getOffset();
+					Coords pos2 = null;
+					String direction = displays.get(id).get(0).getDirection();
+					
+					int x = block.getX();
+					int y = block.getY();
+					int z = block.getZ();
+					
+					/* Chest View
+					 * pos1 (top left), pos2 (bottom right)
+					 * X O O O O O O O O
+					 * O O O O O O O O O
+					 * O O O O O O O O O
+					 * O O O O O O O O O
+					 * O O O O O O O O O
+					 * O O O O O O O O X
+					 */
+					if(direction.matches("[nN]|[nN]orth")){
+						pos2 = new Coords(pos1.getX() - 8, pos1.getY() - 5, pos1.getZ());
+						
+						if((x <= pos1.getX() && x >= pos2.getX()) && (y <= pos1.getY() && y >= pos2.getY()) && z == pos1.getZ()){
+							return true;
+						}
+					}
+					
+					else if(direction.matches("[sS]|[sS]outh")){
+						pos2 = new Coords(pos1.getX() + 8, pos1.getY() - 5, pos1.getZ());
+						
+						if((x >= pos1.getX() && x <= pos2.getX()) && (y <= pos1.getY() && y >= pos2.getY()) && z == pos1.getZ()){
+							return true;
+						}
+					}
+					
+					else if(direction.matches("[eE]|[eE]ast")){
+						pos2 = new Coords(pos1.getX(), pos1.getY() - 5, pos1.getZ() - 8);
+						
+						if(x == pos1.getX() && (y <= pos1.getY() && y >= pos2.getY()) && (z <= pos1.getZ() && z >= pos2.getZ())){
+							return true;
+						}
+					}
+					
+					else if(direction.matches("[wW]|[wW]est")){
+						pos2 = new Coords(pos1.getX(), pos1.getY() - 5, pos1.getZ() + 8);
+						
+						if(x == pos1.getX() && (y <= pos1.getY() && y >= pos2.getY()) && (z >= pos1.getZ() && z <= pos2.getZ())){
+							return true;
+						}
+					}
+					
+					else if(direction.matches("[uU]|[uU]p") || direction.matches("[dD]|[dD]own")){
+						pos2 = new Coords(pos1.getX() + 8, pos1.getY(), pos1.getZ() + 5);
+						
+						if((x >= pos1.getX() && x <= pos2.getX()) && y == pos1.getY() && (z >= pos1.getZ() && z <= pos2.getZ())){
+							return true;
+						}
+					}					
+				}
+			}
+		}
+		return false;
 	}
 }
