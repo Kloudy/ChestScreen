@@ -8,5 +8,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="C:/Users/Tim/Dropbox/Bukkit Mods/worldguard-5.7.5.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Dropbox/Bukkit Server/plugins/WorldEdit.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
