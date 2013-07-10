@@ -251,7 +251,10 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 						canBuild = checkBuildRadiusPermissions(block.getLocation(), player, displays.get(-2).get(counter).getDirection());						
 						if(canBuild){
 							displays.get(-2).get(counter).setOffset(new Coords(block.getLocation().getBlockX(), block.getLocation().getBlockY(), block.getLocation().getBlockZ()));
-							player.sendMessage(ChatColor.GREEN + "Set offset block: X: " + block.getX() + " ,Y: " + block.getY() + " ,Z: " + block.getZ() +"\n" + ChatColor.AQUA + "type /cd finish to complete display setup.");
+							
+							//only display message once if player is setting up multiple displays at once
+							if(found == 0)
+								player.sendMessage(ChatColor.GREEN + "Set offset block: X: " + block.getX() + " ,Y: " + block.getY() + " ,Z: " + block.getZ() +"\n" + ChatColor.AQUA + "type /cd finish to complete display setup.");
 						}
 						
 						else{
@@ -395,8 +398,6 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			}
 		}
 		
-		//TODO when display is removed, set all blocks at its offset to air
-		
 		//Check to see if broken block is part of the display.
 		//If it is, cancel the block break event and prevent and drops from falling
 		boolean noBreak = isDisplayBlock(block);
@@ -471,7 +472,7 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 			block.breakNaturally();
 		}
 	}
-	
+
 	@EventHandler
 	public void RedstoneListener(BlockRedstoneEvent event){		
 		Block poweredBlock = event.getBlock();
@@ -501,7 +502,8 @@ public class ChestDisplay extends JavaPlugin implements Listener{
 				}
 			}
 			
-			if((sign.getLine(0).equals("[ChestDisplay]") || sign.getLine(0).equals("[ChestDisplayN]")) && displays.get(id) != null && sign.getBlock().isBlockPowered() == true && isValid){			
+			if((sign.getLine(0).equals("[ChestDisplay]") || sign.getLine(0).equals("[ChestDisplayN]")) && displays.get(id) != null && sign.getBlock().isBlockPowered() && isValid){			
+				
 				chest = (Chest)world.getBlockAt(bx, by-1, bz).getState();//get chest below sign			
 				items = chest.getInventory().getContents();
 				offset = displays.get(id).get(0).getOffset();
