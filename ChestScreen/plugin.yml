@@ -1,6 +1,6 @@
 name: ChestScreen
 main: kloudy.mc.chestscreen.ChestDisplay
-version: 1.0
+version: 1.1
 author: Kloudy
 
 soft-depend: [WorldGuard]

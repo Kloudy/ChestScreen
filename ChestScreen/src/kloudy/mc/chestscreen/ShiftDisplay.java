@@ -1,63 +1,33 @@
 package kloudy.mc.chestscreen;
 
-public class ShiftDisplay {
+@SuppressWarnings("serial")
+/**
+ * Represents a display that "scrolls" the input retrieved from a book onto the screen.
+ * Allows for a wider width than is permitted with other displays. (Up to 15 blocks)
+ */
+public class ShiftDisplay extends Display{
 	
-	public ShiftDisplay(){
-		
+	/*
+	 * Height of Shift Displays are 6 blocks high and cannot be changed
+	 */
+	
+	private int width;
+	private final int height = 6;
+	
+	public ShiftDisplay(Coords chest, Coords sign, int chestID, Coords offset, String pname, String dir, int width) {
+		super(chest, sign, chestID, offset, pname, dir);
+		this.width = width;
+	}	
+	
+	public void setWidth(int width){
+		this.width = width;
 	}
 	
-	/**
-	 * Takes input  and converts it into boolean array that represents the character
-	 * 
-	 * Example:
-	 * 
-	 * A
-	 * 
-	 * boolean[] array = {   | { 0, 1, 0
-	 * false, true, false,   |   1, 0, 1
-	 * true, false, true,    |   1, 1, 1
-	 * true, false, true,    |   1, 0, 1
-	 * true, true, true,     |   1, 0, 1 }
-	 * true, false, true,    |
-	 * }
-	 * 
-	 * @return boolean array of representing a character
-	 */
-	private boolean[] parseCharacter(char c){		
-		String value = CharacterEnums.valueOf("" + c).tosString();
-		boolean[] bitMatrix = new boolean[value.length()];
-		
-		for(int i = 1; i <= value.length(); i++){
-			
-			//pixel off
-			if(value.charAt(i) == ' '){
-				bitMatrix[i] = false;
-			}
-			
-			//pixel on
-			else{
-				bitMatrix[i] = true;
-			}
-		}	
-		return bitMatrix;
+	public int getWidth(){
+		return width;
 	}
 	
-	/**
-	 * Converts String of text into boolean array
-	 * @return boolean array
-	 */
-	public boolean[] parseString(String str){
-		
-		for(int i = 0; i < str.length(); i++){
-			char c = str.charAt(i);
-			
-			switch(c){
-			
-			case 'a':
-				parseCharacter(c);
-				break;
-			}
-		}
-		return null;
+	public int getHeight(){
+		return this.height;
 	}
 }
