@@ -1,4 +1,4 @@
-package kloudy.mc.chestscreen;
+package kloudy.mc.chestscreen.util;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,27 +9,80 @@ import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 
-import kloudy.mc.enums.CharacterEnums;
-//TODO turn this into the Display manager for all displays
-public class DisplayManager {
+import kloudy.mc.chestscreen.Coords;
+import kloudy.mc.chestscreen.Display;
+import kloudy.mc.chestscreen.enums.*;
+
+/**
+ * Singleton utility class used to manage display objects
+ */
+public class DisplayManager{
 	
-	//Matrix used to set pixels that are displayed at any given point in time
-	private boolean[] viewMatrix;
-	private HashMap<Integer, ArrayList<Display>> displays;
+	public HashMap<Integer, ArrayList<Display>> displays;
+	private static DisplayManager instance;
 	
-	public DisplayManager(HashMap<Integer, ArrayList<Display>> displays){
-		viewMatrix = new boolean[54];
-		this.displays = displays;
+	private DisplayManager()
+	{
+		displays = new HashMap<Integer, ArrayList<Display>>();
+	}
+	
+	public static DisplayManager getInstance()
+	{
+		if(instance == null)
+		{
+			instance = new DisplayManager();
+		}
+
+		return instance;
 	}
 	
 	/**
-	 * Removes a display from use
+	 * Returns a list of pending displays associated with given player
+	 */
+	public ArrayList<Display> getPlayerPendingDisplays(Player player){
+		if(player == null)
+			return null;
+		else{
+			ArrayList<Display> pendingDisplays = new ArrayList<Display>();
+			
+			for(Display display : displays.get(-2)){
+				if(display.getPName().equals(player.getName())){
+					pendingDisplays.add(display);
+				}
+			}
+			return pendingDisplays;
+		}
+	}
+	
+	public boolean isDisplaySign(Sign sign){
+		return getSignDisplayType(sign) != DisplayTypes.None;
+	}
+	
+	/**
+	 * Determines the type of Display associated with a given sign block
+	 */
+	public DisplayTypes getSignDisplayType(Sign sign){
+		if(sign.getLine(0).equals("[ChestDisplay]")){
+			return DisplayTypes.ChestDisplay;
+		}
+		else if(sign.getLine(0).equals("[ChestDisplayN]")){
+			return DisplayTypes.ChestDisplayNull;
+		}
+		else if(sign.getLine(0).equals("[ChestDisplayS]")){
+			return DisplayTypes.ShiftDisplay;
+		}
+		else{
+			return DisplayTypes.None;
+		}
+	}
+	
+	/**
+	 * Removes a display from use and puts it in available ids list
 	 */
 	public void removeDisplay(String pname, int id, World world){	
 		Player player = Bukkit.getServer().getPlayer(pname);
@@ -58,7 +111,7 @@ public class DisplayManager {
 			if(displays.get(id).get(0) != null){
 				displays.get(-1).add(displays.get(id).get(0));//add to unused list
 				
-				String direction = displays.get(id).get(0).getDirection();
+				/*String direction = displays.get(id).get(0).getDirection();
 				Coords offset = displays.get(id).get(0).getOffset();
 				int x = offset.getX();
 				int y = offset.getY();
@@ -118,7 +171,7 @@ public class DisplayManager {
 							world.getBlockAt(new Location(world, x+i, y, z+j)).setTypeId(0);
 						}
 					}
-				}
+				}*/
 							
 				displays.remove(id);
 			}
@@ -143,6 +196,52 @@ public class DisplayManager {
 			id = Integer.parseInt(m.group());
 		}
 		return id;
+	}
+	
+	public int getXRepeatFromSign(Sign sign){
+		Pattern p = Pattern.compile("\\d+");
+		Matcher m = p.matcher(sign.getLine(2));
+		int x = 1;
+		
+		if(m.find()){
+			x = Integer.parseInt(m.group(0));
+		}
+		return x;
+	}
+	
+	public int getZRepeatFromSign(Sign sign){
+		Pattern p = Pattern.compile("\\d+");
+		Matcher m = p.matcher(sign.getLine(2));
+		int z = 1;
+		
+		if(m.find()){
+			z = Integer.parseInt(m.group(1));
+		}
+		return z;
+	}
+	
+	public Directions getDirectionFromSign(Sign sign){
+		
+		Directions direction = Directions.None;
+		int id = getIdFromSign(sign);
+		
+		if(displays.get(id).get(0).getDirection().matches("[nN]|[nN]orth")){
+			direction = Directions.North;
+		}
+		else if(displays.get(id).get(0).getDirection().matches("[sS]|[sS]outh")){
+			direction = Directions.South;
+		}
+		else if(displays.get(id).get(0).getDirection().matches("[eE]|[eE]ast")){
+			direction = Directions.East;
+		}
+		else if(displays.get(id).get(0).getDirection().matches("[wW]|[wW]est")){
+			direction = Directions.West;
+		}
+		else if(displays.get(id).get(0).getDirection().matches("[dD]|[dD]own") || displays.get(id).get(0).getDirection().matches("[uU]|[uU]p")){
+			direction = Directions.Horizontal;
+		}
+		
+		return direction;
 	}
 	
 	/**
@@ -225,58 +324,23 @@ public class DisplayManager {
 	}
 	
 	/**
-	 * Takes input  and converts it into boolean array that represents the character
-	 * 
-	 * Example:
-	 * 
-	 * A
-	 * 
-	 * boolean[] array = {   | { 0, 1, 0
-	 * false, true, false,   |   1, 0, 1
-	 * true, false, true,    |   1, 1, 1
-	 * true, false, true,    |   1, 0, 1
-	 * true, true, true,     |   1, 0, 1 }
-	 * true, false, true,    |
-	 * }
-	 * 
-	 * @return boolean array of representing a character
+	 * Calculates a new chestID
 	 */
-	private boolean[] generateCharacterBitMatrix(char c){		
-		String value = CharacterEnums.valueOf("" + c).tosString();
-		boolean[] bitMatrix = new boolean[value.length()];
-		
-		for(int i = 1; i <= value.length(); i++){
-			
-			//pixel off
-			if(value.charAt(i) == ' '){
-				bitMatrix[i] = false;
-			}
-			
-			//pixel on
-			else{
-				bitMatrix[i] = true;
-			}
-		}	
-		return bitMatrix;
-	}
-	
-	/**
-	 * Converts String of text into boolean array
-	 * @return boolean array
-	 */
-	private boolean[][] generateStringBitMatrix(String str){
-		boolean[][] stringBitMatrix = new boolean[str.length()][];
-		
-		for(int i = 0; i < stringBitMatrix.length; i++){				
-			stringBitMatrix[i] = generateCharacterBitMatrix(str.charAt(i));
+	public int calcID(){
+		int id = 0;
+
+		//no unused chest IDs
+		if(displays.get(-1).size() == 0){
+			id = Display.newID;
+			Display.newID++;
+			displays.get(-3).get(0).setChestID(Display.newID);
 		}
-		return stringBitMatrix;
-	}
-	
-	/*
-	 * Shifts display view to the left 1 block
-	 */
-	public void shift(){
+       	 	       
+        else{
+       	 	id = displays.get(-1).get(0).getChestID();//pull chest ID from unused chest
+       	 	displays.get(-1).remove(0);//removes display from unused list       	 	
+        }
 		
-	}
+		return id;
+	}	
 }

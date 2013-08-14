@@ -1,4 +1,4 @@
-package kloudy.mc.enums;
+package kloudy.mc.chestscreen.enums;
 /**
  * Set of Character Enumerated with pixel data.
  */

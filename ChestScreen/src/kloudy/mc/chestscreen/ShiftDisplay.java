@@ -11,23 +11,28 @@ public class ShiftDisplay extends Display{
 	 * Height of Shift Displays are 6 blocks high and cannot be changed
 	 */
 	
-	private int width;
-	private final int height = 6;
+	private int repeatX;
+	private int repeatZ;
 	
-	public ShiftDisplay(Coords chest, Coords sign, int chestID, Coords offset, String pname, String dir, int width) {
+	public ShiftDisplay(Coords chest, Coords sign, int chestID, Coords offset, String pname, String dir, int repeatX, int repeatZ) {
 		super(chest, sign, chestID, offset, pname, dir);
-		this.width = width;
+		this.repeatX = repeatX;
+		this.repeatZ = repeatZ;
 	}	
 	
-	public void setWidth(int width){
-		this.width = width;
+	public int getRepeatX(){
+		return repeatX;
 	}
 	
-	public int getWidth(){
-		return width;
+	public int getRepeatZ(){
+		return repeatZ;
 	}
 	
-	public int getHeight(){
-		return this.height;
+	public void setRepeatX(int repeatX){
+		this.repeatX = repeatX;
+	}
+	
+	public void setRepeatZ(int repeatZ){
+		this.repeatZ = repeatZ;
 	}
 }
